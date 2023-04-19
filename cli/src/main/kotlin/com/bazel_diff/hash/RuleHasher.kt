@@ -27,17 +27,18 @@ class RuleHasher(private val fineGrainedHashExternalRepos: Set<String>) : KoinCo
     fun digest(
         rule: BazelRule,
         allRulesMap: Map<String, BazelRule>,
-        ruleHashes: ConcurrentMap<String, ByteArray>,
+        ruleHashes: ConcurrentMap<Pair<String, Int?>, ByteArray>,
         sourceDigests: ConcurrentMap<String, ByteArray>,
         seedHash: ByteArray?,
-        depPath: LinkedHashSet<String>?
+        depPath: LinkedHashSet<String>?,
+        depth: Int?
     ): ByteArray {
         val depPathClone = if (depPath != null) LinkedHashSet(depPath) else LinkedHashSet()
         if (depPathClone.contains(rule.name)) {
             throw raiseCircularDependency(depPathClone, rule.name)
         }
         depPathClone.add(rule.name)
-        ruleHashes[rule.name]?.let { return it }
+        ruleHashes[Pair(rule.name, depth)]?.let { return it }
 
         val finalHashValue = sha256 {
             safePutBytes(rule.digest)
@@ -48,11 +49,11 @@ class RuleHasher(private val fineGrainedHashExternalRepos: Set<String>) : KoinCo
 
                 val inputRule = allRulesMap[ruleInput]
                 when {
-                    inputRule == null && sourceDigests.containsKey(ruleInput) -> {
+                    (depth == 0 || inputRule == null) && sourceDigests.containsKey(ruleInput) -> {
                         safePutBytes(sourceDigests[ruleInput])
                     }
 
-                    inputRule?.name != null && inputRule.name != rule.name -> {
+                    depth != 0 && inputRule?.name != null && inputRule.name != rule.name -> {
                         val ruleInputHash = digest(
                             inputRule,
                             allRulesMap,
@@ -60,6 +61,7 @@ class RuleHasher(private val fineGrainedHashExternalRepos: Set<String>) : KoinCo
                             sourceDigests,
                             seedHash,
                             depPathClone,
+                            depth?.minus(1)
                         )
                         safePutBytes(ruleInputHash)
                     }
@@ -73,13 +75,13 @@ class RuleHasher(private val fineGrainedHashExternalRepos: Set<String>) : KoinCo
                                 safePutBytes(heuristicDigest)
                             }
 
-                            else -> logger.w { "Unable to calculate digest for input $ruleInput for rule ${rule.name}" }
+                            depth != 0 -> logger.w { "Unable to calculate digest for input $ruleInput for rule ${rule.name}" }
                         }
                     }
                 }
             }
         }
 
-        return finalHashValue.also { ruleHashes[rule.name] = it }
+        return finalHashValue.also { ruleHashes[Pair(rule.name, depth)] = it }
     }
 }

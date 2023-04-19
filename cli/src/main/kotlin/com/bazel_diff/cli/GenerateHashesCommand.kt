@@ -94,6 +94,13 @@ class GenerateHashesCommand : Callable<Int> {
     )
     var outputPath: File? = null
 
+    @CommandLine.Option(
+            names =  ["-d", "--depth"],
+            description = ["Maximum depth to propagate hashes in tree"],
+            defaultValue = CommandLine.Parameters.NULL_VALUE
+    )
+    var depthLimit: Int? = null
+
     @CommandLine.Spec
     lateinit var spec: CommandLine.Model.CommandSpec
 
@@ -110,6 +117,7 @@ class GenerateHashesCommand : Callable<Int> {
                     bazelCommandOptions,
                     keepGoing,
                     fineGrainedHashExternalRepos,
+                    depthLimit,
                 ),
                 loggingModule(parent.verbose),
                 serialisationModule(),

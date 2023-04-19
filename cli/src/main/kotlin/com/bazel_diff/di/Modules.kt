@@ -30,6 +30,7 @@ fun hasherModule(
     commandOptions: List<String>,
     keepGoing: Boolean?,
     fineGrainedHashExternalRepos: Set<String>,
+    depth: Int?,
 ): Module = module {
     val debug = System.getProperty("DEBUG", "false").equals("true")
     single {
@@ -43,7 +44,7 @@ fun hasherModule(
         )
     }
     single { BazelClient(fineGrainedHashExternalRepos) }
-    single { BuildGraphHasher(get()) }
+    single { BuildGraphHasher(get(), depth) }
     single { TargetHasher() }
     single { RuleHasher(fineGrainedHashExternalRepos) }
     single { SourceFileHasher(fineGrainedHashExternalRepos) }
